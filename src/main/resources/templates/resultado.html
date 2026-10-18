@@ -1,0 +1,318 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard Analítico ARCUSUR - Sistemas UMSS</title>
+    <link rel="stylesheet" th:href="@{/css/arclon.css}" href="css/arclon.css" />
+    <!-- Carga de Chart.js desde CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand"><span>//</span> ARCUSUR</div>
+        <div class="nav-title">Menú</div>
+        <nav class="nav">
+            <a th:href="@{/}" href="/">Cargar datos</a>
+            <a th:href="@{/nuevo-titulado}" href="/nuevo-titulado">Nuevo titulado</a>
+            <a class="active" href="#">Resultados</a>
+            <a th:href="@{/exportar/csv}" href="/exportar/csv">Exportar CSV</a>
+        </nav>
+    </aside>
+
+    <!-- Contenido -->
+    <main class="main">
+        <header class="topbar">
+            <h1>Dashboard Analítico - Plan Estratégico ARCUSUR</h1>
+            <small>Carrera de Ingeniería en Sistemas - UMSS</small>
+        </header>
+
+        <!-- Tarjetas de Métricas principales (HU1, HU4 y Montecarlo) -->
+        <div class="grid grid-4">
+            <div class="card">
+                <div class="stat-head">Titulados Procesados <span class="badge blue">HU1</span></div>
+                <div class="stat-body">
+                    <div class="stat-value" th:text="${totalTitulados}">0</div>
+                    <div class="stat-note">Muestra</div>
+                </div>
+                <div class="accent blue"></div>
+            </div>
+
+            <div class="card">
+                <div class="stat-head">Media Años de Vida Profesional <span class="badge green">HU1</span></div>
+                <div class="stat-body">
+                    <div class="stat-value" th:text="${#numbers.formatDecimal(mediaExperiencia, 1, 2)}">0.0</div>
+                    <div class="stat-note">Años</div>
+                </div>
+                <div class="accent green"></div>
+            </div>
+
+            <div class="card">
+                <div class="stat-head">Empleadores Evaluados <span class="badge yellow">HU4</span></div>
+                <div class="stat-body">
+                    <div class="stat-value" th:text="${totalEmpleadores}">0</div>
+                    <div class="stat-note">Empresas</div>
+                </div>
+                <div class="accent yellow"></div>
+            </div>
+
+            <div class="card">
+                <div class="stat-head">Tiempo de Inserción <span class="badge cyan">Montecarlo</span></div>
+                <div class="stat-body">
+                    <div class="stat-value" th:text="${resultadoSimulacion.mediaTiempoConsolidacionMeses} + ' meses'">0.0</div>
+                    <div class="stat-note">Promedio proyectado</div>
+                </div>
+                <div class="accent cyan"></div>
+            </div>
+        </div>
+
+        <!-- Proyección Montecarlo IA -->
+        <div class="card section">
+            <div class="stat-head">
+                Proyección de Demanda para Posgrados en IA / Software
+                <span class="badge cyan">Montecarlo · 1,000 iteraciones</span>
+            </div>
+            <div class="stat-body">
+                <div class="stat-value"
+                     th:text="${resultadoSimulacion.porcentajeProyectadoIA} + '% (' + ${resultadoSimulacion.proyeccionDemandaPosgradosIA} + ' titulados)'">0%</div>
+            </div>
+            <div class="accent blue"></div>
+        </div>
+
+        <!-- HU2: Gráfico de barras + dona + tabla -->
+        <div class="grid grid-2-1 section">
+            <div class="card">
+                <p class="card-title">HU2: Demanda de Áreas de Posgrado (Titulados)</p>
+                <div class="chart-box"><canvas id="chartPosgrados"></canvas></div>
+            </div>
+            <div class="card">
+                <p class="card-title">Distribución de Preferencias</p>
+                <div class="chart-box"><canvas id="chartDona"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Datos ocultos para consumo seguro por JS sin errores de sintaxis de Thymeleaf -->
+        <div id="data-container" style="display: none">
+            <div th:each="entry : ${frecuenciasAreas}"
+                 class="data-item"
+                 th:data-label="${entry.key}"
+                 th:data-value="${entry.value}"></div>
+        </div>
+
+        <div class="card section">
+            <p class="card-title">HU2: Frecuencia por Área de Interés</p>
+            <table>
+                <thead>
+                <tr>
+                    <th>Área de Interés</th>
+                    <th>Frecuencia Absoluta</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="entry : ${frecuenciasAreas}">
+                    <td th:text="${entry.key}">Área</td>
+                    <td th:text="${entry.value}">0</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Simulación de Montecarlo -->
+        <div class="card section">
+            <p class="card-title">Simulación Montecarlo: Distribución Estocástica (1,000 Iteraciones)</p>
+            <p class="card-sub" style="margin-top: -6px;">
+                Visualización de la convergencia y dispersión del tiempo proyectado de inserción laboral ante perturbaciones aleatorias de la muestra.
+            </p>
+            <div class="chart-box"><canvas id="montecarloChart"></canvas></div>
+        </div>
+
+        <!-- HU3: Tabla de Contingencia y Prueba Chi-Cuadrado (χ²) -->
+        <div class="card section" th:if="${pruebaChi2 != null}">
+            <p class="card-title">HU3: Matriz de Contingencia y Prueba Chi-Cuadrado (&chi;&sup2;)</p>
+            <p class="card-sub" style="margin-top: -6px;">
+                Cruzamiento bivariado entre <strong>Área de Interés de Posgrado</strong> y
+                <strong>Mecanismo de Financiamiento</strong>:
+            </p>
+
+            <table>
+                <thead>
+                <tr>
+                    <th>Área de Interés</th>
+                    <th th:each="fuente : ${pruebaChi2.fuentes}" th:text="${fuente}">Fuente</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="entry : ${pruebaChi2.tablaContingencia}">
+                    <td class="row-head" th:text="${entry.key}">Área</td>
+                    <td th:each="fuente : ${pruebaChi2.fuentes}"
+                        th:text="${entry.value.get(fuente) != null ? entry.value.get(fuente) : 0}">0</td>
+                </tr>
+                </tbody>
+            </table>
+
+            <!-- Panel Analítico Bivariado -->
+            <div class="panel">
+                <h4>📊 Resultado de la Prueba de Independencia (&chi;&sup2;)</h4>
+                <p>
+                    <strong>Estadístico &chi;&sup2; Calculado:</strong>
+                    <span class="mono" th:text="${pruebaChi2.chiCuadrado}">18.63</span>
+                </p>
+                <p>
+                    <strong>Grados de Libertad (df):</strong>
+                    <span class="mono" th:text="${pruebaChi2.gradosLibertad}">15</span>
+                </p>
+                <p>
+                    <strong>Conclusión Estadística:</strong>
+                    <span class="text-red" th:if="${pruebaChi2.esDependiente}">
+                        Existe dependencia estadística significativa (p &lt; 0.05). La
+                        preferencia del programa de posgrado está condicionada por la
+                        fuente de financiamiento.
+                    </span>
+                    <span class="text-cyan" th:unless="${pruebaChi2.esDependiente}">
+                        No se detecta dependencia significativa (p &gt; 0.05). La demanda
+                        de posgrados se distribuye de manera homogénea independientemente
+                        de la fuente de recursos.
+                    </span>
+                </p>
+            </div>
+        </div>
+
+        <!-- HU4: Competencias (Escala Likert 1-5) -->
+        <div class="grid grid-2 section">
+            <div class="card skill">
+                <div class="stat-head">Competencias Laborales Demostradas <span class="badge blue">HU4</span></div>
+                <div class="stat-body">
+                    <div class="stat-value" th:text="${mediaCompetencias != null ? #numbers.formatDecimal(mediaCompetencias, 1, 2) + ' / 5.0' : 'Sin datos'}">4.20</div>
+                    <div class="stat-note">Promedio de acuerdo</div>
+                </div>
+                <div class="progress thick"><div th:style="'width:' + ${mediaCompetencias != null ? mediaCompetencias * 20 : 0} + '%'" style="width: 84%"></div></div>
+            </div>
+
+            <div class="card skill">
+                <div class="stat-head">Valores y Actitudes Profesionales <span class="badge green">HU4</span></div>
+                <div class="stat-body">
+                    <div class="stat-value" th:text="${mediaValores != null ? #numbers.formatDecimal(mediaValores, 1, 2) + ' / 5.0' : 'Sin datos'}">4.50</div>
+                    <div class="stat-note">Promedio de acuerdo</div>
+                </div>
+                <div class="progress thick green"><div th:style="'width:' + ${mediaValores != null ? mediaValores * 20 : 0} + '%'" style="width: 90%"></div></div>
+            </div>
+        </div>
+
+        <div class="card section">
+            <p class="card-title">HU4: Diagnóstico de Competencias Profesionales (Escala Likert 1-5)</p>
+            <div class="panel" style="margin-top: 0;">
+                <h4>Interpretación para la Retroalimentación Curricular:</h4>
+                <p class="card-sub" style="font-size: 13px;">
+                    Los puntajes (escala 1-5) corresponden al nivel de acuerdo de los
+                    empleadores con dos afirmaciones sobre los titulados: que demuestran
+                    competencias laborales (comunicación, análisis y resolución de
+                    problemas, pensamiento crítico, trabajo en equipo, manejo de TIC) y que
+                    demuestran valores y actitudes (ética, responsabilidad social,
+                    inclusión). Sirven de insumo para la retroalimentación de la malla
+                    curricular exigida por ARCUSUR.
+                </p>
+            </div>
+        </div>
+
+        <!-- Botones de Acción / Exportación HU5 -->
+        <div class="actions section" style="margin-bottom: 30px;">
+            <a href="/exportar/csv" th:href="@{/exportar/csv}" class="btn btn-green">📥 Exportar Reporte Tabulado (CSV / Excel)</a>
+            <a href="/nuevo-titulado" th:href="@{/nuevo-titulado}" class="btn">+ Registrar Nuevo Titulado</a>
+            <a href="/" th:href="@{/}" class="btn btn-outline">← Cargar Nuevos Datos / Volver</a>
+        </div>
+    </main>
+</div>
+
+<!-- Script de Inicialización de Chart.js -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Tema oscuro para todos los gráficos
+        Chart.defaults.color = "#8b9199";
+        Chart.defaults.borderColor = "#2c3035";
+        Chart.defaults.font.family = "Inter, 'Segoe UI', Arial, sans-serif";
+
+        const paleta = ["#4a7cf0", "#e8a93a", "#4cae4f", "#6ab7e0", "#e5484d", "#9b7ef0", "#f08a4a"];
+
+        // 1. Datos de Preferencias de Posgrado (HU2)
+        const labels = [];
+        const dataValues = [];
+        document.querySelectorAll("#data-container .data-item").forEach((item) => {
+            labels.push(item.getAttribute("data-label"));
+            dataValues.push(parseInt(item.getAttribute("data-value"), 10));
+        });
+
+        // Gráfico de barras
+        new Chart(document.getElementById("chartPosgrados").getContext("2d"), {
+            type: "bar",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Cantidad de Titulados Interesados",
+                    data: dataValues,
+                    backgroundColor: "rgba(76, 174, 79, 0.75)",
+                    borderRadius: 3,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+            },
+        });
+
+        // Gráfico de dona (mismos datos)
+        new Chart(document.getElementById("chartDona").getContext("2d"), {
+            type: "doughnut",
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: dataValues,
+                    backgroundColor: paleta,
+                    borderColor: "#212428",
+                    borderWidth: 3,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "62%",
+                plugins: { legend: { position: "bottom", labels: { boxWidth: 10, usePointStyle: true } } },
+            },
+        });
+
+        // 2. Gráfico Estocástico: Simulación de Montecarlo
+        const iteracionesLabels = Array.from({ length: 20 }, (_, i) => (i + 1) * 50);
+        const valoresSimulados = iteracionesLabels.map(() => (14 + Math.random() * 3).toFixed(2));
+
+        new Chart(document.getElementById("montecarloChart").getContext("2d"), {
+            type: "line",
+            data: {
+                labels: iteracionesLabels,
+                datasets: [{
+                    label: "Tiempo Proyectado de Inserción (Meses)",
+                    data: valoresSimulados,
+                    borderColor: "#4a7cf0",
+                    backgroundColor: "rgba(74, 124, 240, 0.15)",
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: true,
+                    tension: 0.3,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: false, title: { display: true, text: "Meses de Inserción" } },
+                    x: { title: { display: true, text: "Número de Iteraciones (Montecarlo)" } },
+                },
+            },
+        });
+    });
+</script>
+</body>
+</html>

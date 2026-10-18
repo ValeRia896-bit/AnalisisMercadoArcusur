@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Análisis de Mercado - Sistemas UMSS</title>
+    <link rel="stylesheet" th:href="@{/css/arclon.css}" href="css/arclon.css">
+</head>
+<body>
+<div class="layout">
+ 
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand"><span>//</span> ARCUSUR</div>
+        <div class="nav-title">Menú</div>
+        <nav class="nav">
+            <a class="active" th:href="@{/}" href="#">Cargar datos</a>
+            <a th:href="@{/nuevo-titulado}" href="#">Nuevo titulado</a>
+            <span class="disabled">Resultados</span>
+        </nav>
+    </aside>
+ 
+    <!-- Contenido -->
+    <main class="main">
+        <header class="topbar">
+            <h1>Sistema de Análisis de Mercado (ARCUSUR)</h1>
+            <small>Ingeniería en Sistemas - UMSS</small>
+        </header>
+ 
+        <form action="/analizar" th:action="@{/analizar}" method="POST" enctype="multipart/form-data">
+ 
+            <div class="grid grid-2">
+                <!-- Titulados -->
+                <div class="card">
+                    <p class="card-title">Excel de Titulados <span class="badge blue">.xlsx</span></p>
+                    <label class="dropzone" for="fileTitulados" id="zoneTitulados">
+                        <strong>Seleccionar archivo</strong>
+                        <span class="card-sub" id="nameTitulados">Ningún archivo seleccionado</span>
+                        <input type="file" id="fileTitulados" name="fileTitulados" accept=".xlsx" required>
+                    </label>
+                    <div class="progress"><div id="barTitulados"></div></div>
+                </div>
+ 
+                <!-- Empleadores -->
+                <div class="card">
+                    <p class="card-title">Excel de Empleadores <span class="badge yellow">.xlsx</span></p>
+                    <label class="dropzone" for="fileEmpleadores" id="zoneEmpleadores">
+                        <strong>Seleccionar archivo</strong>
+                        <span class="card-sub" id="nameEmpleadores">Ningún archivo seleccionado</span>
+                        <input type="file" id="fileEmpleadores" name="fileEmpleadores" accept=".xlsx" required>
+                    </label>
+                    <div class="progress"><div id="barEmpleadores" style="background: var(--yellow)"></div></div>
+                </div>
+            </div>
+ 
+            <div class="card" style="margin-top: 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;">
+                <div>
+                    <p class="card-title" style="margin-bottom: 4px;">Procesamiento</p>
+                    <span class="card-sub" id="estado">Sube ambos archivos para habilitar el análisis.</span>
+                </div>
+                <button type="submit" class="btn" id="btnProcesar" disabled>Procesar y Analizar Datos</button>
+            </div>
+        </form>
+    </main>
+</div>
+ 
+<script>
+    // Muestra el nombre del archivo, llena la barra y habilita el botón cuando hay ambos archivos
+    const pares = [
+        { input: 'fileTitulados',   zone: 'zoneTitulados',   name: 'nameTitulados',   bar: 'barTitulados' },
+        { input: 'fileEmpleadores', zone: 'zoneEmpleadores', name: 'nameEmpleadores', bar: 'barEmpleadores' }
+    ];
+    const btn = document.getElementById('btnProcesar');
+    const estado = document.getElementById('estado');
+ 
+    function actualizar() {
+        const listos = pares.every(p => document.getElementById(p.input).files.length > 0);
+        btn.disabled = !listos;
+        estado.textContent = listos
+            ? 'Todo listo. Puedes procesar los datos.'
+            : 'Sube ambos archivos para habilitar el análisis.';
+    }
+ 
+    pares.forEach(p => {
+        const input = document.getElementById(p.input);
+        input.addEventListener('change', () => {
+            const f = input.files[0];
+            document.getElementById(p.name).textContent = f ? f.name : 'Ningún archivo seleccionado';
+            document.getElementById(p.zone).classList.toggle('has-file', !!f);
+            document.getElementById(p.bar).style.width = f ? '100%' : '0';
+            actualizar();
+        });
+    });
+</script>
+</body>
+</html>
+ 
